@@ -1,4 +1,5 @@
 use std::io::TcpStream;
+use std::io::BufferedStream;
 
 #[deriving(Show)]
 struct rxchat {
@@ -6,18 +7,23 @@ struct rxchat {
     msg: String
 }
 
-fn send_stream (stream:&Result<TcpStream,std::io::IoError>,msg: &str) { //redo: borrow/return tcpstream instead?
-    let mut s2 = stream.clone(); //is this memory intensive if called often?
-    let msg = msg.to_string() + "\n";
-    s2.write_str(msg.as_slice());
-    s2.flush(); //I find this unnecessary if newline is present, but here it is anyways
+fn send_stream (s:&mut TcpStream,msg: &str) -> std::io::IoResult<()> {
+    s.write_str(msg.as_slice());
+    s.write_u8(b'\n')
 }
 
 fn main () {
     let (dbtx,dbrx) = std::comm::channel(); //debug channel, unhandled irc msg
     let (mtx,mrx) = std::comm::channel(); //all chat, for another task to consume
 
-    let mut stream = TcpStream::connect("irc.freenode.com", 6667);
+    let mut stream = 
+        match TcpStream::connect("irc.freenode.com", 6667)  {
+            Err(e) => return,
+            Ok(s) => s
+        };
+
+    //let mut s3 = BufferedStream::new(stream.clone()); //will soon be using this instead
+
     let mut s2 = stream.clone(); //clone stream to share
 
     spawn(proc() { //read stream, run handler
@@ -51,7 +57,7 @@ fn main () {
             match vmsg[0] { //I wonder what irc would look like if rewritten today
                 "PING" => {
                     let s = "PONG ".to_string() + vmsg[1];
-                    send_stream(&s2, s.as_slice());
+                    send_stream(&mut s2, s.as_slice());
                     println!("ping-pong: {}",vmsg[1])
                 },
                 _ => match vmsg[1] {
@@ -69,9 +75,9 @@ fn main () {
     });
 
 
-    send_stream (&stream,"NICK rust-test-bot");
-    send_stream (&stream,"USER rust-test-bot localhost some-server :no one special");
-    send_stream (&stream,"JOIN #rust-bots");
+    send_stream (&mut stream,"NICK rust-test-bot");
+    send_stream (&mut stream,"USER rust-test-bot localhost some-server :no one special");
+    send_stream (&mut stream,"JOIN #greathonu");
 
     'chat: loop {
         let chat = mrx.recv(); //receive what the handler task sends us, blocks until it does
