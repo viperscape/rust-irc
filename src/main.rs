@@ -1,3 +1,10 @@
+#![feature(phase)]
+#[phase(plugin)]
+extern crate regex_macros;
+extern crate regex;
+//all above is for regex processing
+
+
 use std::io::TcpStream;
 use std::io::BufferedStream;
 
@@ -92,10 +99,19 @@ fn main () {
     send_stream (&mut bufstream,"USER rust-test-bot localhost some-server :no one special");
     send_stream (&mut bufstream,"JOIN #greathonu");
 
+
+    //set up regex matches
+    let re = regex!(r".*?(rust)"); //to find all mentions of rust let's build this regex
+
     'chat: loop { //todo: consider regex matching for key terms
         let chat = mrx.recv(); //receive what the handler task sends us, blocks until it does
+        println!("privmsg: {}",chat); //print all chat messages
+
+        let msg = chat.msg.as_slice(); //grab the current msg
+        if re.is_match(msg) { //is the regex match true?
+            println!("rust mentioned: {}",msg);
+        }
         
-        println!("privmsg: {}",chat);
     }
 
     drop(bufstream);
