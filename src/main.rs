@@ -40,17 +40,17 @@ fn main () {
                 Ok(v) => v,
                 Err(e) => {
                     println!("error reading stream: {}",e);
-                    dbtx.send(e.to_string()); //send the debug chan the original buffered stream
+                    dbtx.send(e.to_string()); //send the debug chan the io error
                     break 'handler; //exit handler, and let task end
                 }
             };
 
             //msg is currently a byte vector, let's convert to utf8 string
             let msg = match String::from_utf8(msg) { //decode as utf8 (assumes utf8)
-                Ok(v) => v,
-                Err(e) => {
+                Ok(v) => v, //v is properly decoded buffer
+                Err(e) => { //e is the original buffer before attempting to decode
                     println!("error, not utf8!");
-                    dbtx.send("error: not utf8".to_string()); //send debug chan that byte stream is not utf8
+                    dbtx.send("error: not utf8".to_string()); //send debug chan that byte stream is not utf8, optionally you could try and decode with a different character set for the error result (e), which is the original buffer
                     break 'handler;
                 }
             };
@@ -61,7 +61,7 @@ fn main () {
 
             match vmsg[0] { //I wonder what irc would look like if rewritten today
                 "PING" => {
-                    let s = "PONG ".to_string() + vmsg[1];
+                    let s = "PONG ".to_string() + vmsg[1]; //pong back the message, keeps connection alive
                     send_stream(&mut bufstream2, s.as_slice());
                     println!("ping-pong: {}",vmsg[1])
                 },
@@ -92,12 +92,10 @@ fn main () {
     send_stream (&mut bufstream,"USER rust-test-bot localhost some-server :no one special");
     send_stream (&mut bufstream,"JOIN #greathonu");
 
-    'chat: loop { //todo: consider regex match for key terms
+    'chat: loop { //todo: consider regex matching for key terms
         let chat = mrx.recv(); //receive what the handler task sends us, blocks until it does
         
-        match chat.msg.as_slice() { //could match for key terms here
-            _ => println!("privmsg: {}",chat)
-        }
+        println!("privmsg: {}",chat);
     }
 
     drop(bufstream);
