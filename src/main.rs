@@ -29,10 +29,7 @@ fn main () {
 
     let mut stream = 
         match TcpStream::connect("irc.freenode.com", 6667)  {
-            Err(e) => {
-                println!("error connecting: {}",e);
-                return //kill main
-            },
+            Err(e) => panic!("error connecting: {}",e), //kills program, prints error
             Ok(s) => s
         };
 
@@ -91,10 +88,9 @@ fn main () {
                 }
             }
         }
-
-        drop(bufstream2);
     });
 
+    //connect to irc and send nick info
     send_stream (&mut bufstream,"NICK rust-test-bot");
     send_stream (&mut bufstream,"USER rust-test-bot localhost some-server :no one special");
     send_stream (&mut bufstream,"JOIN #greathonu");
@@ -113,7 +109,4 @@ fn main () {
         }
         
     }
-
-    drop(bufstream);
-    drop(stream);
 }
